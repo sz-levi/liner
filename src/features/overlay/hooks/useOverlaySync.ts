@@ -59,6 +59,9 @@ export function useOverlaySync() {
         case "togglePlay":
           void playerEngine.togglePlayPause();
           break;
+        case "toggleShuffle":
+          playerEngine.setShuffle(!player.shuffle);
+          break;
         case "play":
           void playerEngine.resume();
           break;
@@ -114,7 +117,7 @@ export function useOverlaySync() {
     });
 
     return cleanup;
-  }, [currentTrack, isLiked, likeMutation, unlikeMutation]);
+  }, [currentTrack, isLiked, likeMutation, unlikeMutation, player.shuffle]);
 
   // Push updates to overlay
   useEffect(() => {
@@ -151,6 +154,7 @@ export function useOverlaySync() {
       durationMs: player.durationMs,
       volume: player.volume,
       isLiked,
+      shuffle: player.shuffle,
     };
 
     window.linerElectron.overlayUpdateState(payload);
@@ -159,6 +163,7 @@ export function useOverlaySync() {
     player.positionMs,
     player.durationMs,
     player.volume,
+    player.shuffle,
     currentTrack,
     effectiveCover,
     isLiked,

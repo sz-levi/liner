@@ -6,7 +6,7 @@ import {
   SkipNext,
   SkipPrevious,
 } from "@solar-icons/react";
-import { HeartFill, HeartLine } from "@mingcute/react";
+import { HeartFill, HeartLine, Shuffle2Line } from "@mingcute/react";
 import CoverImage from "@/features/covers/ui/CoverImage";
 import { ScrollableText } from "@/shared/ui/ScrollableText";
 import { useDisableButtonFocus } from "@/features/navigation/hooks/useDisableButtonFocus";
@@ -25,13 +25,14 @@ const OVERLAY_CARD_TRANSITION = {
 export function OverlayPlayer() {
   useDisableButtonFocus();
 
-  const [state, setState] = useState<OverlayStatePayload>({
+  const [state, setState] = useState<OverlayStatePayload & { shuffle?: boolean }>({
     status: "idle",
     track: null,
     positionMs: 0,
     durationMs: 0,
     volume: 1,
     isLiked: false,
+    shuffle: false,
   });
 
   const [isInfoHovered, setIsInfoHovered] = useState(false);
@@ -41,7 +42,6 @@ export function OverlayPlayer() {
   const anchorTimeRef = useRef(performance.now());
   const [interpolatedPosMs, setInterpolatedPosMs] = useState(state.positionMs);
   const lastTrackIdRef = useRef<string | null>(null);
-
 
   useEffect(() => {
     window.linerElectron?.getOverlayInitialState?.().then((initial) => {
@@ -156,7 +156,6 @@ export function OverlayPlayer() {
     });
   }, []);
 
-  // Keyboard Shortcuts (Arrow keys for sound & seek, Space, L, J, K, F to switch to main app)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
@@ -165,7 +164,6 @@ export function OverlayPlayer() {
       const code = e.code;
       const keyLower = e.key.toLowerCase();
 
-      // Sound up / down shortcuts
       if (code === "ArrowUp" || e.key === "ArrowUp") {
         e.preventDefault();
         sendAction({ type: "volumeUp" });
@@ -178,21 +176,18 @@ export function OverlayPlayer() {
         return;
       }
 
-      // Switch to main app
       if (code === "KeyF" || keyLower === "f" || keyLower === "а") {
         e.preventDefault();
         sendAction({ type: "focusMainWindow" });
         return;
       }
 
-      // Playback toggle
       if (code === "Space" || keyLower === " ") {
         e.preventDefault();
         sendAction({ type: "togglePlay" });
         return;
       }
 
-      // Seek left / right
       if (code === "ArrowLeft" || e.key === "ArrowLeft") {
         e.preventDefault();
         sendAction({ type: "seek", payload: { positionMs: Math.max(0, currentPosMs - 5000) } });
@@ -205,14 +200,19 @@ export function OverlayPlayer() {
         return;
       }
 
-      // Like
+      if (code === "KeyS" || keyLower === "s" || keyLower === "ы") {
+        e.preventDefault();
+        setState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
+        sendAction({ type: "toggleShuffle" });
+        return;
+      }
+
       if (code === "KeyL" || keyLower === "l" || keyLower === "д") {
         e.preventDefault();
         sendAction({ type: "like" });
         return;
       }
 
-      // Previous
       if (
         code === "KeyJ" ||
         code === "BracketLeft" ||
@@ -225,7 +225,6 @@ export function OverlayPlayer() {
         return;
       }
 
-      // Next
       if (
         code === "KeyK" ||
         code === "BracketRight" ||
@@ -248,7 +247,6 @@ export function OverlayPlayer() {
       className="flex h-screen w-screen select-none flex-col justify-start bg-transparent antialiased overflow-hidden font-sans p-1 m-0 border-0"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
-      {/* ── Main Overlay Card ── */}
       <motion.div
         initial={false}
         animate={{
@@ -263,7 +261,6 @@ export function OverlayPlayer() {
           transformOrigin: "center center",
         }}
       >
-        {/* Wallpaper background */}
         {hasCustomBg && backgroundImage && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
             <div className="absolute inset-0 bg-[#0d0d10]" />
@@ -288,7 +285,6 @@ export function OverlayPlayer() {
           </div>
         )}
 
-        {/* Background Progress Fill - Straight rectangular without rounding */}
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-[1] rounded-none"
           style={{
@@ -298,9 +294,7 @@ export function OverlayPlayer() {
           }}
         />
 
-        {/* Content Row */}
         <div className="relative z-[2] flex h-full w-full items-center justify-between px-2.5">
-          {/* Left: Artwork + Track Info (Fully draggable to drag window) */}
           <div
             className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden cursor-default pr-2"
             onMouseEnter={() => setIsInfoHovered(true)}
@@ -342,12 +336,33 @@ export function OverlayPlayer() {
             </div>
           </div>
 
-          {/* Right: Like Button + Playback Controls (Previous, Play/Pause, Next) */}
           <div
             className="flex items-center gap-0.5 shrink-0 pl-1"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             onMouseDown={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
+                sendAction({ type: "toggleShuffle" });
+              }}
+              className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px] border-0 transition-all outline-none cursor-pointer active:scale-90 ${
+                state.shuffle
+                  ? "bg-white text-black shadow-sm"
+                  : "bg-transparent text-white/50 hover:text-white"
+              }`}
+              title={state.shuffle ? "Shuffle: On" : "Shuffle: Off"}
+            >
+              <Shuffle2Line size={15} />
+            </button>
+
             <button
               type="button"
               tabIndex={-1}

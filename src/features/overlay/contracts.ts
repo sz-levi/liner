@@ -1,4 +1,10 @@
-export type OverlayPosition = "top-left" | "top-center" | "top-right";
+export type OverlayPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 export interface OverlaySettings {
   enabled: boolean;
@@ -25,11 +31,13 @@ export interface OverlayStatePayload {
   durationMs: number;
   volume: number;
   isLiked: boolean;
+  shuffle?: boolean;
 }
 
 export interface OverlayAction {
   type:
     | "togglePlay"
+    | "toggleShuffle"
     | "play"
     | "pause"
     | "next"
