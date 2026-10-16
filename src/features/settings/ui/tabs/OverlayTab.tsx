@@ -15,6 +15,9 @@ const POSITION_OPTIONS = [
   { value: "top-left" as const, label: "Top Left" },
   { value: "top-center" as const, label: "Top Middle" },
   { value: "top-right" as const, label: "Top Right" },
+  { value: "bottom-left" as const, label: "Bottom Left" },
+  { value: "bottom-center" as const, label: "Bottom Middle" },
+  { value: "bottom-right" as const, label: "Bottom Right" },
 ] as const;
 
 const DEFAULT_SHORTCUT = "Alt+Shift+O";
@@ -168,16 +171,19 @@ export function OverlayTab({ searchQuery }: { searchQuery?: string }) {
             : "flex flex-col divide-y divide-solid divide-border-primary opacity-40 grayscale pointer-events-none select-none transition-all duration-200"
         }
       >
-        <SettingRow
-          title={t("settings.overlay.position.title") || "Position"}
-          description={
-            t("settings.overlay.position.description") ||
-            "Choose where the overlay appears on your desktop."
-          }
-          titleKey="settings.overlay.position.title"
-          descKey="settings.overlay.position.description"
-          searchQuery={searchQuery}
-          control={
+        {/* Pozíció választó különálló, két szintű sorban */}
+        <div className="flex flex-col gap-3 py-3">
+          <div className="flex flex-col">
+            <span className="text-[13.5px] font-medium text-text-primary">
+              {t("settings.overlay.position.title") || "Position"}
+            </span>
+            <span className="text-[12px] text-text-secondary">
+              {t("settings.overlay.position.description") ||
+                "Choose where the overlay appears on your desktop."}
+            </span>
+          </div>
+
+          <div className="w-full">
             <SegmentedControl<OverlayPosition>
               options={POSITION_OPTIONS}
               value={position}
@@ -185,8 +191,8 @@ export function OverlayTab({ searchQuery }: { searchQuery?: string }) {
               disabled={!enabled}
               ariaLabel="Overlay Position"
             />
-          }
-        />
+          </div>
+        </div>
 
         <SettingRow
           title={t("settings.overlay.shortcut.title") || "Global shortcut"}

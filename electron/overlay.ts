@@ -2,7 +2,13 @@ import { BrowserWindow, ipcMain, screen, globalShortcut, app } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 
-export type OverlayPosition = "top-left" | "top-center" | "top-right";
+export type OverlayPosition = 
+  | "top-left" 
+  | "top-center" 
+  | "top-right" 
+  | "bottom-left" 
+  | "bottom-center" 
+  | "bottom-right";
 
 export interface OverlaySettings {
   enabled: boolean;
@@ -90,7 +96,10 @@ export class OverlayManager {
         if (
           data.position === "top-left" ||
           data.position === "top-center" ||
-          data.position === "top-right"
+          data.position === "top-right" ||
+          data.position === "bottom-left" ||
+          data.position === "bottom-center" ||
+          data.position === "bottom-right"
         ) {
           this.position = data.position;
         }
@@ -224,16 +233,26 @@ export class OverlayManager {
     const finalHeight = height ?? this.getTargetHeight();
 
     let x: number;
-    const y = Math.round(workArea.y + padding);
+    let y: number;
+
+    const isBottom = this.position.startsWith("bottom");
+    if (isBottom) {
+      y = Math.round(workArea.y + workArea.height - finalHeight - padding);
+    } else {
+      y = Math.round(workArea.y + padding);
+    }
 
     switch (this.position) {
       case "top-left":
+      case "bottom-left":
         x = Math.round(workArea.x + padding);
         break;
       case "top-right":
+      case "bottom-right":
         x = Math.round(workArea.x + workArea.width - width - padding);
         break;
       case "top-center":
+      case "bottom-center":
       default:
         x = Math.round(workArea.x + (workArea.width - width) / 2);
         break;
@@ -262,7 +281,6 @@ export class OverlayManager {
     }
 
     const startTime = performance.now();
-    // Cubic ease out: 1 - Math.pow(1 - t, 3)
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
     const interval = 8;
 
@@ -493,7 +511,10 @@ export class OverlayManager {
       if (
         settings.position === "top-left" ||
         settings.position === "top-center" ||
-        settings.position === "top-right"
+        settings.position === "top-right" ||
+        settings.position === "bottom-left" ||
+        settings.position === "bottom-center" ||
+        settings.position === "bottom-right"
       ) {
         const changed = this.position !== settings.position;
         this.position = settings.position;
