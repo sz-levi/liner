@@ -1,21 +1,27 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useTranslation } from "@/languages";
 import { motion } from "framer-motion";
 import {
-  Play,
-  Pause,
   SkipNext,
   SkipPrevious,
 } from "@solar-icons/react";
-import { HeartFill, HeartLine, Shuffle2Line } from "@mingcute/react";
+import {
+  PlayerMorphIcon,
+  ICON_PLAY,
+  ICON_PAUSE,
+} from "@/features/player/ui/morphPlayerIcons";
+import { HeartFill, HeartLine } from "@mingcute/react";
 import CoverImage from "@/features/covers/ui/CoverImage";
 import { ScrollableText } from "@/shared/ui/ScrollableText";
 import { useDisableButtonFocus } from "@/features/navigation/hooks/useDisableButtonFocus";
+import { getAuthSession } from "@/shared/api";
 import type { OverlayAction, OverlayStatePayload } from "../contracts";
 import {
   useCustomizationStore,
   loadPersistedWallpaper,
   DEFAULT_GLASS_CONFIG,
 } from "@/features/settings";
+import { useShortcutsStore, matchesShortcut } from "@/features/shortcuts";
 
 const OVERLAY_CARD_TRANSITION = {
   duration: 0.08,
@@ -24,15 +30,15 @@ const OVERLAY_CARD_TRANSITION = {
 
 export function OverlayPlayer() {
   useDisableButtonFocus();
+  const { t } = useTranslation();
 
-  const [state, setState] = useState<OverlayStatePayload & { shuffle?: boolean }>({
+  const [state, setState] = useState<OverlayStatePayload>({
     status: "idle",
     track: null,
     positionMs: 0,
     durationMs: 0,
     volume: 1,
     isLiked: false,
-    shuffle: false,
   });
 
   const [isInfoHovered, setIsInfoHovered] = useState(false);
@@ -43,7 +49,13 @@ export function OverlayPlayer() {
   const [interpolatedPosMs, setInterpolatedPosMs] = useState(state.positionMs);
   const lastTrackIdRef = useRef<string | null>(null);
 
+
   useEffect(() => {
+    if (!getAuthSession()) {
+      window.linerElectron?.closeOverlay?.();
+      return;
+    }
+
     window.linerElectron?.getOverlayInitialState?.().then((initial) => {
       if (initial) {
         anchorPosRef.current = initial.positionMs;
@@ -156,82 +168,69 @@ export function OverlayPlayer() {
     });
   }, []);
 
+  // Keyboard Shortcuts (Miniplayer mode)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-      const code = e.code;
-      const keyLower = e.key.toLowerCase();
+      const { miniplayer } = useShortcutsStore.getState();
 
-      if (code === "ArrowUp" || e.key === "ArrowUp") {
+      // Sound up / down shortcuts
+      if (matchesShortcut(e, miniplayer.volumeUp)) {
         e.preventDefault();
         sendAction({ type: "volumeUp" });
         return;
       }
 
-      if (code === "ArrowDown" || e.key === "ArrowDown") {
+      if (matchesShortcut(e, miniplayer.volumeDown)) {
         e.preventDefault();
         sendAction({ type: "volumeDown" });
         return;
       }
 
-      if (code === "KeyF" || keyLower === "f" || keyLower === "а") {
+      // Switch to main app
+      if (matchesShortcut(e, miniplayer.focusMainWindow)) {
         e.preventDefault();
         sendAction({ type: "focusMainWindow" });
         return;
       }
 
-      if (code === "Space" || keyLower === " ") {
+      // Playback toggle
+      if (matchesShortcut(e, miniplayer.playPause)) {
         e.preventDefault();
         sendAction({ type: "togglePlay" });
         return;
       }
 
-      if (code === "ArrowLeft" || e.key === "ArrowLeft") {
+      // Seek left / right
+      if (matchesShortcut(e, miniplayer.seekBackward)) {
         e.preventDefault();
         sendAction({ type: "seek", payload: { positionMs: Math.max(0, currentPosMs - 5000) } });
         return;
       }
 
-      if (code === "ArrowRight" || e.key === "ArrowRight") {
+      if (matchesShortcut(e, miniplayer.seekForward)) {
         e.preventDefault();
         sendAction({ type: "seek", payload: { positionMs: Math.min(durationMs, currentPosMs + 5000) } });
         return;
       }
 
-      if (code === "KeyS" || keyLower === "s" || keyLower === "ы") {
-        e.preventDefault();
-        setState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
-        sendAction({ type: "toggleShuffle" });
-        return;
-      }
-
-      if (code === "KeyL" || keyLower === "l" || keyLower === "д") {
+      // Like
+      if (matchesShortcut(e, miniplayer.likeTrack)) {
         e.preventDefault();
         sendAction({ type: "like" });
         return;
       }
 
-      if (
-        code === "KeyJ" ||
-        code === "BracketLeft" ||
-        keyLower === "j" ||
-        keyLower === "о" ||
-        keyLower === "["
-      ) {
+      // Previous
+      if (matchesShortcut(e, miniplayer.prevTrack)) {
         e.preventDefault();
         sendAction({ type: "prev" });
         return;
       }
 
-      if (
-        code === "KeyK" ||
-        code === "BracketRight" ||
-        keyLower === "k" ||
-        keyLower === "л" ||
-        keyLower === "]"
-      ) {
+      // Next
+      if (matchesShortcut(e, miniplayer.nextTrack)) {
         e.preventDefault();
         sendAction({ type: "next" });
         return;
@@ -247,6 +246,7 @@ export function OverlayPlayer() {
       className="flex h-screen w-screen select-none flex-col justify-start bg-transparent antialiased overflow-hidden font-sans p-1 m-0 border-0"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
+      {/* ── Main Overlay Card ── */}
       <motion.div
         initial={false}
         animate={{
@@ -261,6 +261,7 @@ export function OverlayPlayer() {
           transformOrigin: "center center",
         }}
       >
+        {/* Wallpaper background */}
         {hasCustomBg && backgroundImage && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
             <div className="absolute inset-0 bg-[#0d0d10]" />
@@ -285,6 +286,7 @@ export function OverlayPlayer() {
           </div>
         )}
 
+        {/* Background Progress Fill - Straight rectangular without rounding */}
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-[1] rounded-none"
           style={{
@@ -294,7 +296,9 @@ export function OverlayPlayer() {
           }}
         />
 
+        {/* Content Row */}
         <div className="relative z-[2] flex h-full w-full items-center justify-between px-2.5">
+          {/* Left: Artwork + Track Info (Fully draggable to drag window) */}
           <div
             className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden cursor-default pr-2"
             onMouseEnter={() => setIsInfoHovered(true)}
@@ -336,33 +340,12 @@ export function OverlayPlayer() {
             </div>
           </div>
 
+          {/* Right: Like Button + Playback Controls (Previous, Play/Pause, Next) */}
           <div
             className="flex items-center gap-0.5 shrink-0 pl-1"
             style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              tabIndex={-1}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setState((prev) => ({ ...prev, shuffle: !prev.shuffle }));
-                sendAction({ type: "toggleShuffle" });
-              }}
-              className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[6px] border-0 transition-all outline-none cursor-pointer active:scale-90 ${
-                state.shuffle
-                  ? "bg-white text-black shadow-sm"
-                  : "bg-transparent text-white/50 hover:text-white"
-              }`}
-              title={state.shuffle ? "Shuffle: On" : "Shuffle: Off"}
-            >
-              <Shuffle2Line size={15} />
-            </button>
-
             <button
               type="button"
               tabIndex={-1}
@@ -379,7 +362,7 @@ export function OverlayPlayer() {
                   ? "text-[#ff3b5c]"
                   : "text-white/40 hover:text-white"
               }`}
-              title={state.isLiked ? "Unlike" : "Like"}
+              aria-label={state.isLiked ? "Unlike" : "Like"}
             >
               {state.isLiked ? <HeartFill size={16} /> : <HeartLine size={16} />}
             </button>
@@ -396,7 +379,7 @@ export function OverlayPlayer() {
                 sendAction({ type: "prev" });
               }}
               className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border-0 bg-transparent text-white/60 hover:text-white active:scale-90 transition-all outline-none cursor-pointer"
-              title="Previous"
+              aria-label="Previous"
             >
               <SkipPrevious size={16} weight="Bold" />
             </button>
@@ -413,13 +396,18 @@ export function OverlayPlayer() {
                 sendAction({ type: "togglePlay" });
               }}
               className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-white text-black shadow transition-all duration-150 ease-out hover:scale-105 active:scale-95 border-none cursor-pointer"
-              title={isPlaying ? "Pause" : "Play"}
+              aria-label={isPlaying ? "Pause" : "Play"}
             >
-              {isPlaying ? (
-                <Pause size={14} weight="Bold" />
-              ) : (
-                <Play size={14} weight="Bold" className="translate-x-[0.5px]" />
-              )}
+              <span
+                className={`flex items-center justify-center transition-transform ${
+                  isPlaying ? "" : "translate-x-[0.5px]"
+                }`}
+              >
+                <PlayerMorphIcon
+                  icon={isPlaying ? ICON_PAUSE : ICON_PLAY}
+                  size={14}
+                />
+              </span>
             </button>
 
             <button
@@ -434,7 +422,7 @@ export function OverlayPlayer() {
                 sendAction({ type: "next" });
               }}
               className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border-0 bg-transparent text-white/60 hover:text-white active:scale-90 transition-all outline-none cursor-pointer"
-              title="Next"
+              aria-label="Next"
             >
               <SkipNext size={16} weight="Bold" />
             </button>

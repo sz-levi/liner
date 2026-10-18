@@ -5,15 +5,15 @@ import { RootErrorBoundary } from "@/shared/ui";
 import { initGlobalErrorHandlers } from "@/shared/utils/globalErrorHandlers";
 import { initTelemetry } from "@/shared/telemetry";
 import { initBackgroundStorageAnalytics } from "@/shared/utils/cacheManager";
-import { initApiEndpointProbe } from "@/shared/api";
 import { initClientVisitorSession } from "@/shared/api/visitorSession";
+import { initBundleStampLog } from "@/shared/utils/bundleStampLog";
 
-// Initialize global uncaught error, telemetry listeners, background storage tracker, edge health probe, and visitor session
+// Initialize global uncaught error, telemetry listeners, background storage tracker and visitor session
 initGlobalErrorHandlers();
 initTelemetry();
 initBackgroundStorageAnalytics();
-initApiEndpointProbe();
 initClientVisitorSession();
+initBundleStampLog();
 
 const rootElement = document.getElementById("root");
 
